@@ -9,10 +9,10 @@
 
 ### Design
 PCB Wireframe:
-![PCBF](https://github.com/uzzambutt/NorthernStudiosHackpad/blob/main/src/image_2025-11-29_233835127.png)
+![PCBF](https://github.com/uzzambutt/NorthernStudiosHackpad/blob/main/src/image_2025-12-02_111008836.png)
 
 Rendered:
-![PCBR](https://github.com/uzzambutt/NorthernStudiosHackpad/blob/main/src/1.png)
+![PCBR](https://github.com/uzzambutt/NorthernStudiosHackpad/blob/main/src/image_2025-12-02_111000194.png)
 
 3D Printed Base:
 ![BASE](https://github.com/uzzambutt/NorthernStudiosHackpad/blob/main/src/image1.png)
