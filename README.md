@@ -17,4 +17,6 @@ Rendered:
 3D Printed Base:
 ![BASE](https://github.com/uzzambutt/NorthernStudiosHackpad/blob/main/src/image_2025-12-02_115216555.png)
 
+***NOTE***: this time i made the front plate too because i didnt have enough spcae to add another component on the PCB.
+
 
