@@ -15,6 +15,6 @@ Rendered:
 ![PCBR](https://github.com/uzzambutt/NorthernStudiosHackpad/blob/main/src/image_2025-12-02_111000194.png)
 
 3D Printed Base:
-![BASE](https://github.com/uzzambutt/NorthernStudiosHackpad/blob/main/src/image1.png)
+![BASE](https://github.com/uzzambutt/NorthernStudiosHackpad/blob/main/src/image_2025-12-02_115216555.png)
 
-***NOTE***: I intentionally left the front cover for the macropad because i like my macropad bare. Ill just place it inside the base i made.
+
