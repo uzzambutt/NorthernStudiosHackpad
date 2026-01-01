@@ -1,39 +1,97 @@
 import board
+import busio
+import microcontroller
+import digitalio
+import adafruit_ssd1306
 from kmk.kmk_keyboard import KMKKeyboard
 from kmk.keys import KC
-from kmk.scanners import DiodeOrientation
 from kmk.scanners.keypad import KeysScanner
 from kmk.modules.layers import Layers
-from kmk.modules.encoder import EncoderHandler
-from kmk.extensions.display import Display, TextEntry, ImageEntry
+
+# 1. HARDWARE PIN SETUP (Rotary Encoder)
+enc_a = digitalio.DigitalInOut(microcontroller.pin.GPIO0)
+enc_b = digitalio.DigitalInOut(microcontroller.pin.GPIO1)
+enc_a.direction = digitalio.Direction.INPUT
+enc_b.direction = digitalio.Direction.INPUT
+enc_a.pull = digitalio.Pull.UP
+enc_b.pull = digitalio.Pull.UP
 
 keyboard = KMKKeyboard()
 
-# Northern Studios Pinout
-# SW1=D0, SW2=D1, SW3=D2, SW4=D3
-# SW5=D8, SW6=D9, SW7=D10 (Mode Button)
-PINS = [
-    board.D0, board.D1, board.D2, board.D3, # Left Side Buttons
-    board.D8, board.D9, board.D10           # Right Side Buttons
-]
+# 2. OLED SETUP
+i2c = busio.I2C(microcontroller.pin.GPIO7, microcontroller.pin.GPIO6)
+display = adafruit_ssd1306.SSD1306_I2C(128, 32, i2c)
 
+menu_modes = ["1. FLIGHT MODE", "2. RACE MODE", "3. MEDIA MODE"]
+current_layer = 0
+
+def update_menu(layer_idx):
+    try:
+        display.fill(0)
+        display.text('--- SIM DECK ---', 15, 0, 1)
+        display.text(menu_modes[layer_idx], 20, 15, 1)
+        display.text('STATE: ACTIVE', 25, 24, 1)
+        display.show()
+    except:
+        pass
+
+# 3. KEYPAD SETUP (Stability Focus)
+# We go back to a standard scan but use the specific GPIOs known to work
 keyboard.matrix = KeysScanner(
-    pins=PINS,
-    value_when_pressed=False, 
-    pull=True,                
-    interval=0.02,            # Debounce time
+    pins=[
+        microcontroller.pin.GPIO26, microcontroller.pin.GPIO27, 
+        microcontroller.pin.GPIO28, microcontroller.pin.GPIO29, 
+        microcontroller.pin.GPIO2,  microcontroller.pin.GPIO4, 
+        microcontroller.pin.GPIO3
+    ],
+    value_when_pressed=False,
+    pull=True,
 )
 
-# --- 2. MODULES ---
-layers = Layers()
-keyboard.modules.append(layers)
+keyboard.modules = [Layers()]
 
-encoder_handler = EncoderHandler()
-keyboard.modules.append(encoder_handler)
+# 4. KEYMAP
+keyboard.keymap = [
+    [KC.F13, KC.F14, KC.F15, KC.F16, KC.F17, KC.F18, KC.F19],
+    [KC.N1, KC.N2, KC.N3, KC.N4, KC.N5, KC.N6, KC.N7],
+    [KC.A, KC.B, KC.C, KC.D, KC.E, KC.F, KC.G]
+]
 
-# --- OLED DISPLAY CONFIG ---
-# (Pins D4/SDA and D5/SCL) 
-display = Display(
+# 5. LATCHED ENCODER LOGIC
+last_stable_val = (enc_a.value << 1) | enc_b.value
+rotation_count = 0
+
+def master_loop(*args, **kwargs):
+    global last_stable_val, current_layer, rotation_count
+    
+    # Check encoder
+    cur_a = enc_a.value
+    cur_b = enc_b.value
+    current_val = (cur_a << 1) | cur_b
+    
+    if current_val != last_stable_val:
+        state = (last_stable_val << 2) | current_val
+        if state in (0b0001, 0b0111, 0b1110, 0b1000):
+            rotation_count += 1
+        elif state in (0b0010, 0b1011, 0b1101, 0b0100):
+            rotation_count -= 1
+        last_stable_val = current_val
+
+        if abs(rotation_count) >= 4:
+            if rotation_count >= 4:
+                current_layer = (current_layer + 1) % 3
+            else:
+                current_layer = (current_layer - 1) % 3
+            
+            keyboard.active_layers = [current_layer]
+            update_menu(current_layer)
+            rotation_count = 0
+
+keyboard.before_matrix_scan = master_loop
+update_menu(0)
+
+if __name__ == '__main__':
+    keyboard.go()
     display_signal=board.I2C(),
     font='kmk/extensions/display/font.bdf',
     brightness=0.8,
