@@ -1,3 +1,11 @@
+# ---------------------------------------------------------
+# northernStudios™ Sim Deck Firmware
+# Developer: Muhammad Uzzam Butt
+# License: CC BY-NC-SA 4.0
+# ---------------------------------------------------------
+
+
+
 import board
 import busio
 import microcontroller
