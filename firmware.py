@@ -3,152 +3,130 @@ import busio
 import microcontroller
 import digitalio
 import adafruit_ssd1306
+import neopixel
+import time
+import rotaryio
 from kmk.kmk_keyboard import KMKKeyboard
 from kmk.keys import KC
 from kmk.scanners.keypad import KeysScanner
 from kmk.modules.layers import Layers
+from kmk.extensions.media_keys import MediaKeys
 
-# 1. HARDWARE PIN SETUP (Rotary Encoder)
-enc_a = digitalio.DigitalInOut(microcontroller.pin.GPIO0)
-enc_b = digitalio.DigitalInOut(microcontroller.pin.GPIO1)
-enc_a.direction = digitalio.Direction.INPUT
-enc_b.direction = digitalio.Direction.INPUT
-enc_a.pull = digitalio.Pull.UP
-enc_b.pull = digitalio.Pull.UP
+# --- CONFIG ---
+RGB_SPEED = 0.1 
+VERSION = "v3.3"
+
+# --- BITMAPS (32x32) ---
+# [Your bitmap hex arrays remain exactly the same here]
+PLANE_BITMAP = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x80, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x0f, 0xf0, 0x00, 0x00, 0x1f, 0xf8, 0x00, 0x00, 0x7f, 0xfe, 0x00, 0x00, 0xff, 0xff, 0x00, 0x01, 0xff, 0xff, 0x80, 0x07, 0xfb, 0xdf, 0xe0, 0x0f, 0xc3, 0xc3, 0xf0, 0x0c, 0x03, 0xc0, 0x30, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x07, 0xe0, 0x00, 0x00, 0x07, 0xe0, 0x00, 0x00, 0x0d, 0xb0, 0x00, 0x00, 0x08, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+RACE_BITMAP = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3e, 0x78, 0x00, 0x08, 0xff, 0xf8, 0x0f, 0xff, 0xff, 0xf8, 0x3e, 0x7f, 0xff, 0xc0, 0x3a, 0xaf, 0xff, 0x50, 0x01, 0x00, 0xe0, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+MEDIA_BITMAP = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x1f, 0x01, 0xc0, 0x00, 0x3f, 0x01, 0xe0, 0x00, 0x7f, 0x00, 0xf0, 0x00, 0x7f, 0x00, 0x78, 0x00, 0xff, 0x00, 0x1c, 0x01, 0xff, 0x0e, 0x1c, 0xff, 0xff, 0x0f, 0x0e, 0xff, 0xff, 0x07, 0x06, 0xff, 0xff, 0x03, 0x87, 0xff, 0xff, 0x01, 0x87, 0xff, 0xff, 0x01, 0xc7, 0xff, 0xff, 0x01, 0xc3, 0xff, 0xff, 0x01, 0xc3, 0xff, 0xff, 0x01, 0xc7, 0xff, 0xff, 0x01, 0x87, 0xff, 0xff, 0x03, 0x87, 0xff, 0xff, 0x07, 0x06, 0xff, 0xff, 0x0f, 0x0e, 0x01, 0xff, 0x0e, 0x1c, 0x00, 0xff, 0x00, 0x1c, 0x00, 0x7f, 0x00, 0x78, 0x00, 0x7f, 0x00, 0xf0, 0x00, 0x3f, 0x01, 0xe0, 0x00, 0x1f, 0x01, 0xc0, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+# --- HARDWARE ---
+pixel = neopixel.NeoPixel(microcontroller.pin.GPIO12, 1, brightness=0.1)
+encoder = rotaryio.IncrementalEncoder(board.RX, board.TX)
 
 keyboard = KMKKeyboard()
-
-# 2. OLED SETUP
+keyboard.extensions.append(MediaKeys())
 i2c = busio.I2C(microcontroller.pin.GPIO7, microcontroller.pin.GPIO6)
 display = adafruit_ssd1306.SSD1306_I2C(128, 32, i2c)
 
-menu_modes = ["1. FLIGHT MODE", "2. RACE MODE", "3. MEDIA MODE"]
-current_layer = 0
+def draw_bitmap_direct(bitmap, x_offset, y_offset):
+    for y in range(32):
+        for x in range(32):
+            byte_index = (y * 4) + (x // 8)
+            bit_index = 7 - (x % 8)
+            if (bitmap[byte_index] >> bit_index) & 1:
+                display.pixel(x + x_offset, y + y_offset, 1)
 
-def update_menu(layer_idx):
-    try:
-        display.fill(0)
-        display.text('--- SIM DECK ---', 15, 0, 1)
-        display.text(menu_modes[layer_idx], 20, 15, 1)
-        display.text('STATE: ACTIVE', 25, 24, 1)
+def update_ui(layer_idx, pulse=False):
+    display.fill(0)
+    bitmaps = [PLANE_BITMAP, RACE_BITMAP, MEDIA_BITMAP]
+    labels = ["FLIGHT MODE", "RACING MODE", "MEDIA MODE"]
+    draw_bitmap_direct(bitmaps[layer_idx], 5, 0)
+    display.text(labels[layer_idx], 42, 4, 1)
+    if pulse: display.fill_rect(122, 2, 3, 3, 1)
+    display.hline(42, 16, 80, 1)
+    display.text(f"NS:{VERSION} PROD", 42, 20, 1)
+    display.rect(0, 0, 128, 32, 1)
+    display.show()
+
+def startup_screen():
+    display.fill(0)
+    display.rect(0, 0, 128, 32, 1)
+    display.text("NorthernStudios", 20, 8, 1)
+    display.text("TM", 110, 6, 1)
+    display.rect(14, 22, 102, 8, 1) 
+    display.show()
+    pixel[0] = (200, 200, 200)
+    for i in range(100):
+        display.fill_rect(15, 23, i + 1, 6, 1)
         display.show()
-    except:
-        pass
+        time.sleep(0.005) 
+    pixel[0] = (0, 0, 0)
 
-# 3. KEYPAD SETUP (Stability Focus)
-# We go back to a standard scan but use the specific GPIOs known to work
+# --- KEYMAP ---
 keyboard.matrix = KeysScanner(
-    pins=[
-        microcontroller.pin.GPIO26, microcontroller.pin.GPIO27, 
-        microcontroller.pin.GPIO28, microcontroller.pin.GPIO29, 
-        microcontroller.pin.GPIO2,  microcontroller.pin.GPIO4, 
-        microcontroller.pin.GPIO3
-    ],
-    value_when_pressed=False,
-    pull=True,
+    pins=[microcontroller.pin.GPIO26, microcontroller.pin.GPIO27, 
+          microcontroller.pin.GPIO28, microcontroller.pin.GPIO29, 
+          microcontroller.pin.GPIO2,  microcontroller.pin.GPIO4, 
+          microcontroller.pin.GPIO3],
+    value_when_pressed=False, pull=True
 )
-
 keyboard.modules = [Layers()]
-
-# 4. KEYMAP
 keyboard.keymap = [
     [KC.F13, KC.F14, KC.F15, KC.F16, KC.F17, KC.F18, KC.F19],
     [KC.N1, KC.N2, KC.N3, KC.N4, KC.N5, KC.N6, KC.N7],
     [KC.A, KC.B, KC.C, KC.D, KC.E, KC.F, KC.G]
 ]
 
-# 5. LATCHED ENCODER LOGIC
-last_stable_val = (enc_a.value << 1) | enc_b.value
-rotation_count = 0
+# --- OPTIMIZED LOGIC ---
+def color_wheel(pos):
+    if pos < 85: return (255 - pos * 3, pos * 3, 0)
+    if pos < 170: pos -= 85; return (0, 255 - pos * 3, pos * 3)
+    pos -= 170; return (pos * 3, 0, 255 - pos * 3)
+
+last_position = 0
+current_layer = 0
+rgb_step = 0.0
+last_ui_update = 0
+ui_refresh_needed = False
+pulse_state = False
 
 def master_loop(*args, **kwargs):
-    global last_stable_val, current_layer, rotation_count
+    global last_position, current_layer, rgb_step, last_ui_update, ui_refresh_needed, pulse_state
     
-    # Check encoder
-    cur_a = enc_a.value
-    cur_b = enc_b.value
-    current_val = (cur_a << 1) | cur_b
+    # 1. RGB (Extremely fast, low overhead)
+    rgb_step = (rgb_step + RGB_SPEED) % 255
+    pixel[0] = color_wheel(int(rgb_step))
     
-    if current_val != last_stable_val:
-        state = (last_stable_val << 2) | current_val
-        if state in (0b0001, 0b0111, 0b1110, 0b1000):
-            rotation_count += 1
-        elif state in (0b0010, 0b1011, 0b1101, 0b0100):
-            rotation_count -= 1
-        last_stable_val = current_val
+    # 2. Hardware Encoder (Interrupt-based, Zero Latency)
+    current_position = encoder.position
+    if current_position != last_position:
+        change = current_position - last_position
+        current_layer = (current_layer + change) % 3
+        keyboard.active_layers = [current_layer]
+        last_position = current_position
+        ui_refresh_needed = True # Flag for update
 
-        if abs(rotation_count) >= 4:
-            if rotation_count >= 4:
-                current_layer = (current_layer + 1) % 3
-            else:
-                current_layer = (current_layer - 1) % 3
-            
-            keyboard.active_layers = [current_layer]
-            update_menu(current_layer)
-            rotation_count = 0
+    # 3. Asynchronous Display Update
+    # Only update the screen once every 300ms if needed.
+    # This prevents the slow OLED from lagging the key scanner.
+    now = time.monotonic()
+    if now - last_ui_update > 0.3:
+        if ui_refresh_needed:
+            update_ui(current_layer, pulse=pulse_state)
+            ui_refresh_needed = False
+            last_ui_update = now
+        elif now - last_ui_update > 1.0: # Periodic pulse
+            pulse_state = not pulse_state
+            update_ui(current_layer, pulse=pulse_state)
+            last_ui_update = now
 
 keyboard.before_matrix_scan = master_loop
-update_menu(0)
 
-if __name__ == '__main__':
-    keyboard.go()
-    display_signal=board.I2C(),
-    font='kmk/extensions/display/font.bdf',
-    brightness=0.8,
-)
-
-# Screen Layers 
-display.entries.append(TextEntry(text='NORTHERN PAY', x=0, y=0, layer=0))
-display.entries.append(TextEntry(text='FLIGHT SIM', x=0, y=0, layer=1))
-display.entries.append(TextEntry(text='RACING SIM', x=0, y=0, layer=2))
-
-keyboard.extensions.append(display)
-
-# --- 4. KEYMAPS ---
-# KEY LAYOUT:
-# [SW1] [SW2] [SW3] [SW4]
-# [SW5] [SW6] [SW7]
-
-# Layer 0: MENU / SELECTION
-# Layer 1: FLIGHT MODE
-# Layer 2: RACING MODE
-
-keyboard.keymap = [
-    # LAYER 0 (Menu)
-    [
-        KC.NO,    KC.NO,    KC.NO,    KC.NO,
-        KC.TO(1), KC.TO(2), KC.NO,
-    ],
-
-    # LAYER 1 (Flight Sim)
-    # SW7 acts as "Exit to Menu"
-    [
-        KC.G,      KC.F,      KC.L,      KC.B,      # Gear, Flaps, Lights, Batt
-        KC.A,      KC.E,      KC.TO(0),             # AP, Engine, BACK TO MENU
-    ],
-
-    # LAYER 2 (Racing Sim)
-    # SW7 acts as "Exit to Menu"
-    [
-        KC.P,      KC.W,      KC.L,      KC.I,      # Pit, Wipers, Lights, Ignition
-        KC.S,      KC.T,      KC.TO(0),             # Starter, TC, BACK TO MENU
-    ]
-]
-
-# --- ENCODER MAPPING ---
-# Pins: A=D6 (TX), B=D7 (RX)
-encoder_handler.pins = ((board.D6, board.D7, None),)
-
-encoder_handler.map = [
-    # Layer 0 (Menu): Volume Control
-    ((KC.VOLU, KC.VOLD),),
-    
-    # Layer 1 (Flight): Comms / Heading (Left/Right Arrows)
-    ((KC.RIGHT, KC.LEFT),),
-    
-    # Layer 2 (Racing): Brake Bias (Square Brackets)
-    ((KC.RBRC, KC.LBRC),),
-]
+startup_screen()
+update_ui(0)
 
 if __name__ == '__main__':
     keyboard.go()
